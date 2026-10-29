@@ -187,11 +187,11 @@ function defang(s){
   return s.replace(/\b(\d{1,3}\.\d{1,3}\.\d{1,3})\.(\d{1,3})\b/g,"$1[.]$2")
           .replace(/\b([a-z0-9-]+)\.([a-z]{2,})\b/gi,"$1[.]$2");
 }
-function line(label,val){return val?`* '''${label}''': ${val}\n`:"";}
+function line(label,val){return val?`  * '''${label}''': ${val}\n`:"";}
 
 function buildReport(){
   const D=s=>$("r-defang").checked?defang(s):s;
-  let o=`'''${or(v("r-title"),"[Title]")}'''\n\n`;
+  let o=`'''${or(v("r-title"),"[Title]")}'''\n`;
   o+=line("Alert Time",v("r-time"));
   o+=line("Rule",v("r-rule"));
   o+=line("Direction",$("r-dir").value);
@@ -203,7 +203,7 @@ function buildReport(){
   o+=line("OSINT",D(v("r-osint")));
   o+=line("Links",v("r-links"));
   o+=line("Analyst",v("r-an"));
-  $("o-report").textContent=o.trimEnd();
+  $("o-report").textContent=o.replace(/\n+$/,"");
 }
 
 function buildFP(){
