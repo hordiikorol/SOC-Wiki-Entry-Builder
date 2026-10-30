@@ -6,245 +6,568 @@
 <title>SOC Wiki Entry Builder</title>
 <style>
 [hidden]{display:none!important}
-/* Layout: tab bar → two columns (grouped form | sticky output); one column on narrow screens */
+/* Layout: mode bar → Tickets (list | editor + output) or Quick entry (form | output); one column on narrow screens */
 :root{
   --bg:#eef1f2; --panel:#ffffff; --fg:#1b2428; --muted:#5b6a71; --line:#d5dde0; --soft:#f6f8f9;
   --accent:#0f6b72; --accent-fg:#ffffff; --accent-soft:#e1eff0; --code-bg:#f1f4f5;
+  --open:#8a5a00; --open-bg:#fff3d6; --esc:#a3341f; --esc-bg:#fde4dd; --closed:#2f6b3a; --closed-bg:#e2f2e5;
   --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --mono:ui-monospace,Menlo,Consolas,monospace;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#101518; --panel:#182024; --fg:#e3eaec; --muted:#93a3aa; --line:#2b383d; --soft:#1d272b;
-  --accent:#4fb3ba; --accent-fg:#0d1416; --accent-soft:#1b3235; --code-bg:#11181b; color-scheme:dark}}
+  --accent:#4fb3ba; --accent-fg:#0d1416; --accent-soft:#1b3235; --code-bg:#11181b;
+  --open:#f0c060; --open-bg:#3a2e12; --esc:#f08c78; --esc-bg:#3d1e18; --closed:#86cf95; --closed-bg:#1b3221; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#101518; --panel:#182024; --fg:#e3eaec; --muted:#93a3aa; --line:#2b383d; --soft:#1d272b;
-  --accent:#4fb3ba; --accent-fg:#0d1416; --accent-soft:#1b3235; --code-bg:#11181b; color-scheme:dark}
+  --accent:#4fb3ba; --accent-fg:#0d1416; --accent-soft:#1b3235; --code-bg:#11181b;
+  --open:#f0c060; --open-bg:#3a2e12; --esc:#f08c78; --esc-bg:#3d1e18; --closed:#86cf95; --closed-bg:#1b3221; color-scheme:dark}
 body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:14px;line-height:1.5}
-.wrap{max-width:1180px;margin:0 auto;padding-block:24px 48px;
+.wrap{max-width:1240px;margin:0 auto;padding-block:22px 48px;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
-header{margin-bottom:18px}
-h1{font-size:21px;font-weight:650;margin:0 0 2px;text-wrap:balance}
-.sub{color:var(--muted);margin:0}
-
-.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;box-shadow:0 2px 8px rgba(0,0,0,.06);display:grid;grid-template-columns:repeat(3,minmax(0,1fr));background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:18px}
-.tab{font:inherit;text-align:left;padding:12px 16px;border:0;border-right:1px solid var(--line);background:transparent;color:var(--fg);cursor:pointer;display:grid;gap:1px;border-bottom:3px solid transparent}
-.tab:last-child{border-right:0}
-.tab b{font-size:14px;font-weight:600}
-.tab span{font-size:12px;color:var(--muted)}
-.tab:hover{background:var(--soft)}
-.tab[aria-selected="true"]{background:var(--accent-soft);border-bottom-color:var(--accent)}
-.tab[aria-selected="true"] b{color:var(--accent)}
-@media (max-width:560px){.tabs{grid-template-columns:1fr}.tab{border-right:0;border-bottom:1px solid var(--line)}.tab[aria-selected="true"]{border-bottom-color:var(--accent)}}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+h1{font-size:20px;font-weight:650;margin:0}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
-.grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:18px;align-items:start}
-@media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
-.pane{background:var(--panel);border:1px solid var(--line);border-radius:10px;min-width:0}
-.out{position:sticky;top:96px;padding:16px}
-@media (max-width:860px){.out{position:static}}
+.modes{display:inline-flex;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:3px;gap:3px}
+.mode{font:inherit;font-weight:600;font-size:13px;padding:7px 16px;border:0;border-radius:6px;background:transparent;color:var(--muted);cursor:pointer}
+.mode[aria-selected="true"]{background:var(--accent);color:var(--accent-fg)}
+.lead{color:var(--muted);margin:0 0 14px;max-width:72ch}
 
+.pane{background:var(--panel);border:1px solid var(--line);border-radius:10px;min-width:0}
 .group{padding:16px 18px;display:grid;gap:12px}
 .group + .group{border-top:1px solid var(--line)}
-.group h3{margin:0;font-size:11px;font-weight:650;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);display:flex;align-items:center;gap:8px}
-.group h3 em{font-style:normal;font-weight:500;text-transform:none;letter-spacing:0;color:var(--muted);opacity:.85}
+.group h3{margin:0;font-size:11px;font-weight:650;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.group h3 em{font-style:normal;font-weight:500;text-transform:none;letter-spacing:0}
 .group.optional{background:var(--soft)}
+.stack{display:grid;gap:12px}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 @media (max-width:520px){.row2{grid-template-columns:1fr}}
 label{display:grid;gap:4px;font-size:12px;font-weight:550;color:var(--fg)}
 input,select,textarea{font:inherit;font-size:13px;font-weight:400;color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 10px;width:100%;box-sizing:border-box}
 input::placeholder,textarea::placeholder{color:var(--muted);opacity:.75}
 textarea{min-height:96px;resize:vertical}
+textarea.work{min-height:140px;font-family:var(--mono);font-size:12px}
 .check{display:flex;gap:8px;align-items:center;font-size:13px;font-weight:400}
 .check input{width:auto;margin:0}
 .hint{font-size:12px;color:var(--muted);margin:0}
+.dateline{display:flex;gap:6px}
+.dateline input{flex:1;min-width:0}
+.today{font:inherit;font-size:12px;padding:0 10px;border-radius:6px;border:1px solid var(--line);background:var(--soft);color:var(--fg);cursor:pointer;white-space:nowrap}
 
-.outhead{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+.btn{font:inherit;font-weight:600;font-size:13px;padding:6px 14px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-fg);cursor:pointer}
+.ghost{font:inherit;font-weight:500;font-size:13px;padding:6px 12px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer}
+.ghost.warn{border-color:var(--esc);color:var(--esc)}
+.btns{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+
+.tk{display:grid;grid-template-columns:270px minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:900px){.tk{grid-template-columns:minmax(0,1fr)}}
+.list{padding:12px;display:grid;gap:10px;position:sticky;top:16px}
+@media (max-width:900px){.list{position:static}}
+.items{display:grid;gap:6px;max-height:60vh;overflow:auto}
+.item{text-align:left;font:inherit;display:grid;gap:3px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--fg);cursor:pointer;min-width:0}
+.item[aria-current="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.item b{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item small{display:flex;gap:6px;align-items:center;font-size:11px;color:var(--muted)}
+.chip{font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px}
+.chip.Open{color:var(--open);background:var(--open-bg)}
+.chip.Escalated{color:var(--esc);background:var(--esc-bg)}
+.chip.Closed{color:var(--closed);background:var(--closed-bg)}
+.empty{font-size:13px;color:var(--muted);padding:6px 2px;margin:0}
+.editor{display:grid;gap:16px;min-width:0}
+.edhead{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 18px}
+.edhead label{display:flex;gap:8px;align-items:center;font-weight:500}
+.edhead select{width:auto}
+.saved{font-size:12px;color:var(--muted)}
+.block{display:grid;gap:12px;padding-top:10px}
+.bh{margin:0;font-size:17px;font-weight:650;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding-left:12px;border-left:4px solid var(--accent)}
+.bh em{font-style:normal;font-size:12px;font-weight:400;color:var(--muted)}
+.b-fp .bh{border-left-color:var(--esc)}
+.b-asset .bh{border-left-color:var(--open)}
+.block + .block{border-top:1px solid var(--line);padding-top:26px}
+.host{display:grid;gap:10px;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+.hosthead{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:600;color:var(--muted)}
+.noticket{padding:40px 24px;text-align:center;color:var(--muted)}
+.noticket p{margin:0 0 14px}
+
+.out{padding:16px;display:grid;gap:4px}
+.outhead{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px}
 .outhead h2{font-size:11px;font-weight:650;margin:0;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
-.copy{font:inherit;font-weight:600;font-size:13px;padding:6px 14px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-fg);cursor:pointer}
-pre{font-family:var(--mono);font-size:12px;line-height:1.55;background:var(--code-bg);border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:0 0 16px;white-space:pre-wrap;word-break:break-word;overflow-x:auto}
+pre{font-family:var(--mono);font-size:12px;line-height:1.55;background:var(--code-bg);border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:0 0 12px;white-space:pre-wrap;word-break:break-word;overflow-x:auto}
+.dest{font-size:12px;color:var(--muted);margin:-2px 0 8px}
+.missing{font-size:12px;color:var(--muted);margin:0 0 6px}
+.missing b{color:var(--fg);font-weight:600}
 .status{font-size:12px;color:var(--accent);min-height:1em}
+.warnbox{font-size:12px;color:var(--esc);background:var(--esc-bg);border-radius:6px;padding:8px 10px;margin:0 0 14px}
+
+.subtabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.subtab{font:inherit;font-weight:500;font-size:13px;padding:6px 14px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--fg);cursor:pointer}
+.subtab[aria-selected="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600}
+.grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
+.grid .out{position:sticky;top:16px}
+@media (max-width:860px){.grid .out{position:static}}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
     <h1>SOC Wiki Entry Builder</h1>
-    <p class="sub">Choose a builder, fill in the fields, then copy the MediaWiki markup into your wiki.</p>
+    <div class="modes" role="tablist">
+      <button class="mode" role="tab" data-mode="tickets" aria-selected="true">Tickets</button>
+      <button class="mode" role="tab" data-mode="quick" aria-selected="false">Quick entry</button>
+    </div>
   </header>
 
-  <div class="tabs" role="tablist">
-    <button class="tab" role="tab" id="t-report" aria-selected="true" data-p="report"><b>Daily report</b><span>Report entry</span></button>
-    <button class="tab" role="tab" id="t-fp" aria-selected="false" data-p="fp"><b>False positive</b><span>Table row</span></button>
-    <button class="tab" role="tab" id="t-asset" aria-selected="false" data-p="asset"><b>Asset</b><span>Table row</span></button>
-  </div>
+  <!-- ===================== TICKETS ===================== -->
+  <section id="v-tickets">
+    <p class="lead">Open a ticket when you start on an alert and add to it as you go. When you're done, the daily report, the false positive entry and the asset entries are ready to copy.</p>
+    <p class="warnbox" id="nostore" hidden>This browser isn't keeping your tickets. They will be gone when you close the page.</p>
+    <div class="tk">
+      <aside class="pane list">
+        <button class="btn" id="k-new">New ticket</button>
+        <input id="k-search" placeholder="Search tickets">
+        <div class="items" id="k-items"></div>
+        <p class="hint">Tickets stay in this browser on this computer.</p>
+      </aside>
 
-  <!-- DAILY REPORT -->
-  <section class="grid" id="p-report">
-    <div class="pane">
-      <div class="group">
-        <h3>Alert</h3>
-        <label>Title<input id="r-title" placeholder="Short description and verdict"></label>
-        <label>Alert time<input id="r-time" placeholder="DD Mon YYYY @ HH:MM:SS"></label>
-        <label>Rule<input id="r-rule" placeholder="Signature name (sid)"></label>
-        <label>Direction<select id="r-dir"><option value="">Choose</option><option>Internal -> Internal</option><option>External -> Internal</option><option>Internal -> External</option><option>External -> External</option></select></label>
+      <div class="editor">
+        <div class="pane noticket" id="k-none">
+          <p>No ticket open.</p>
+          <button class="btn" id="k-new2">New ticket</button>
+        </div>
+
+        <div id="k-form" class="editor" hidden>
+          <div class="pane edhead">
+            <label>Status<select id="k-status"><option>Open</option><option>Escalated</option><option>Closed</option></select></label>
+            <div class="btns"><span class="saved" id="k-saved"></span><button class="ghost" id="k-del">Delete ticket</button></div>
+          </div>
+
+          <!-- Daily report -->
+          <div class="block b-report">
+            <h2 class="bh">Daily report</h2>
+            <div class="pane">
+              <div class="group">
+                <h3>Alert</h3>
+                <label>Title<input id="k-title" placeholder="Short description and verdict"></label>
+                <label>Alert time<input id="k-time" placeholder="DD Mon YYYY @ HH:MM:SS"></label>
+                <label>Rule<input id="k-rule" placeholder="Signature name (sid)"></label>
+                <label>Direction<select id="k-dir"><option value="">Choose</option><option>Internal -> Internal</option><option>External -> Internal</option><option>Internal -> External</option><option>External -> External</option></select></label>
+              </div>
+              <div class="group">
+                <h3>Involved systems</h3>
+                <label>External<input id="k-ext" placeholder="IP:port (role)"></label>
+                <label>Internal<input id="k-int" placeholder="IP:port (name, role)"></label>
+              </div>
+              <div class="group">
+                <h3>Working notes <em>not in the report</em></h3>
+                <textarea class="work" id="k-work" placeholder="Anything you find along the way: field values, lookups, things to check"></textarea>
+              </div>
+              <div class="group">
+                <h3>Findings</h3>
+                <label>Incident summary<textarea id="k-sum" placeholder="What happened, the evidence, and the verdict"></textarea></label>
+                <label>OSINT<input id="k-osint" placeholder="Reputation results, or N/A for internal addresses"></label>
+                <label>Notes<input id="k-notes" placeholder="Open questions, follow-ups"></label>
+                <label>Links<input id="k-links" placeholder="Reputation lookups, dashboards"></label>
+                <div class="row2">
+                  <label>Analyst<input id="k-an" placeholder="Your name"></label>
+                  <label>Date<span class="dateline"><input id="k-date" placeholder="DD.MM.YYYY" inputmode="numeric" autocomplete="off"><button type="button" class="today" data-for="k-date">Today</button></span></label>
+                </div>
+                <label>Link to this report<input id="k-rep" placeholder="e.g. [[Page#anchor]], also used in the false positive and asset entries"></label>
+                <label class="check"><input type="checkbox" id="k-defang" checked> Defang IPs, domains and links</label>
+              </div>
+            </div>
+            <div class="pane out" id="k-out">
+              <div class="outhead"><h2>Daily report</h2><button class="btn copy" data-src="ko-report">Copy</button></div>
+              <p class="dest">Goes on the daily reports page.</p>
+              <p class="missing" id="km-report"></p>
+              <pre id="ko-report"></pre>
+              <div class="status" aria-live="polite"></div>
+            </div>
+          </div>
+
+          <!-- False positive -->
+          <div class="block b-fp">
+            <h2 class="bh">False positive <em>leave empty if the alert isn't one</em></h2>
+            <div class="pane">
+              <div class="group">
+                <div class="row2">
+                  <label>Number<input id="k-fnum" placeholder="Next number in the table" inputmode="numeric"></label>
+                  <label>Dashboard<input id="k-fdash" placeholder="Where the alert was seen"></label>
+                </div>
+                <label>Signature<input id="k-fsig" placeholder="Leave empty to use the rule above"></label>
+                <label>Condition<input id="k-fcond" placeholder="src IP -> dest IP:port/proto"></label>
+                <label>Why benign<input id="k-fwhy" placeholder="One line"></label>
+                <div class="row2">
+                  <label>Added<span class="dateline"><input id="k-fadded" placeholder="DD.MM.YYYY" inputmode="numeric" autocomplete="off"><button type="button" class="today" data-for="k-fadded">Today</button></span></label>
+                  <label>Last reviewed<span class="dateline"><input id="k-frev" placeholder="DD.MM.YYYY" inputmode="numeric" autocomplete="off"><button type="button" class="today" data-for="k-frev">Today</button></span></label>
+                </div>
+                <label>Exclusion query<input id="k-fex" placeholder="Optional: field : &quot;value&quot; and other.field : *word*"></label>
+                <label class="check"><input type="checkbox" id="k-foi"> Wrap the exclusion in onlyinclude</label>
+                <label>False positives page<input id="k-fpage" placeholder="Page name, adds a Known FP line to the report"></label>
+                <p class="hint">The report link comes from the daily report. The page name is remembered for next time.</p>
+              </div>
+            </div>
+            <div class="pane out" id="ko-fpwrap">
+              <div class="outhead"><h2>False positive entry</h2><button class="btn copy" data-src="ko-fp">Copy</button></div>
+              <p class="dest">Goes in the false positives table, as a new row at the top.</p>
+              <p class="missing" id="km-fp"></p>
+              <pre id="ko-fp"></pre>
+              <div class="status" aria-live="polite"></div>
+            </div>
+          </div>
+
+          <!-- Assets -->
+          <div class="block b-asset">
+            <h2 class="bh">Assets <em>hosts you identified</em></h2>
+            <div class="pane">
+              <div class="group">
+                <div id="k-hosts" class="stack"></div>
+                <div><button class="ghost" id="k-addhost" type="button">Add host</button></div>
+              </div>
+            </div>
+            <div class="pane out" id="ko-hostwrap">
+              <div class="outhead"><h2>Asset entries</h2><button class="btn copy" data-src="ko-hosts">Copy</button></div>
+              <p class="dest">Goes in the assets table, one row per host.</p>
+              <pre id="ko-hosts"></pre>
+              <div class="status" aria-live="polite"></div>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="group">
-        <h3>Involved systems</h3>
-        <label>External<input id="r-ext" placeholder="IP:port (role)"></label>
-        <label>Internal<input id="r-int" placeholder="IP:port (name, role)"></label>
-      </div>
-      <div class="group">
-        <h3>Analysis</h3>
-        <label>Incident summary<textarea id="r-sum" placeholder="What happened, the evidence, and the verdict"></textarea></label>
-        <label>OSINT<input id="r-osint" placeholder="Reputation results, or N/A for internal addresses"></label>
-      </div>
-      <div class="group optional">
-        <h3>Extra <em>optional</em></h3>
-        <label>Notes<input id="r-notes" placeholder="Open questions, follow-ups"></label>
-        <label>Links<input id="r-links" placeholder="Reputation lookups, dashboards"></label>
-        <label>Known false positive<input id="r-fpl" placeholder="Wiki link, e.g. [[Page#anchor|Known FP #1]]"></label>
-        <label>Analyst<input id="r-an" placeholder="Your name"></label>
-        <label class="check"><input type="checkbox" id="r-defang" checked> Defang IPs and domains ([.])</label>
-      </div>
-    </div>
-    <div class="pane out">
-      <div class="outhead"><h2>Wiki markup</h2><button class="copy" data-src="o-report">Copy</button></div>
-      <pre id="o-report"></pre>
-      <div class="status" aria-live="polite"></div>
     </div>
   </section>
 
-  <!-- FALSE POSITIVE -->
-  <section class="grid" id="p-fp" hidden>
-    <div class="pane">
-      <div class="group">
-        <h3>Entry</h3>
-        <div class="row2">
-          <label>Number<input id="f-num" placeholder="Next number" inputmode="numeric"></label>
-          <label>Dashboard<input id="f-dash" placeholder="Where the alert was seen"></label>
-        </div>
-        <label>Signature<input id="f-sig" placeholder="Signature name"></label>
-        <label>Condition<input id="f-cond" placeholder="src IP -> dest IP:port/proto"></label>
-        <label>Why benign<input id="f-why" placeholder="One line"></label>
-      </div>
-      <div class="group">
-        <h3>Report and dates</h3>
-        <label>Report link<input id="f-rep" placeholder="Wiki link to the report, e.g. [[Page#anchor]]"></label>
-        <div class="row2">
-          <label>Added<input id="f-added" placeholder="DD.MM.YYYY" inputmode="numeric" autocomplete="off"></label>
-          <label>Last reviewed<input id="f-rev" placeholder="DD.MM.YYYY" inputmode="numeric" autocomplete="off"></label>
-        </div>
-      </div>
-      <div class="group optional">
-        <h3>Exclusion <em>optional</em></h3>
-        <label>Exclusion query<input id="f-ex" placeholder="KQL condition, e.g. field : &quot;value&quot; and other.field : *word*"></label>
-        <label class="check"><input type="checkbox" id="f-oi"> Wrap in onlyinclude, so another page can pull it in</label>
-        <p class="hint">Written as <code>and not (...)</code>. An empty query gives "-".</p>
-      </div>
+  <!-- ===================== QUICK ENTRY ===================== -->
+  <section id="v-quick" hidden>
+    <p class="lead">For a single entry without a ticket. Nothing here is kept.</p>
+    <div class="subtabs" role="tablist">
+      <button class="subtab" role="tab" data-p="report" aria-selected="true">Daily report</button>
+      <button class="subtab" role="tab" data-p="fp" aria-selected="false">False positive</button>
+      <button class="subtab" role="tab" data-p="asset" aria-selected="false">Asset</button>
     </div>
-    <div class="pane out">
-      <div class="outhead"><h2>Table row</h2><button class="copy" data-src="o-fp">Copy</button></div>
-      <pre id="o-fp"></pre>
-      <div class="status" aria-live="polite"></div>
-    </div>
-  </section>
 
-  <!-- ASSET -->
-  <section class="grid" id="p-asset" hidden>
-    <div class="pane">
-      <div class="group">
-        <h3>Host</h3>
-        <div class="row2">
-          <label>IP<input id="a-ip" placeholder="IP address"></label>
-          <label>Name<input id="a-name" placeholder="Hostname, or leave empty"></label>
+    <div class="grid qp" id="p-report">
+      <div class="pane">
+        <div class="group">
+          <h3>Alert</h3>
+          <label>Title<input id="r-title" placeholder="Short description and verdict"></label>
+          <label>Alert time<input id="r-time" placeholder="DD Mon YYYY @ HH:MM:SS"></label>
+          <label>Rule<input id="r-rule" placeholder="Signature name (sid)"></label>
+          <label>Direction<select id="r-dir"><option value="">Choose</option><option>Internal -> Internal</option><option>External -> Internal</option><option>Internal -> External</option><option>External -> External</option></select></label>
         </div>
-        <label>Role<input id="a-role" placeholder="e.g. File server"></label>
-        <label class="check"><input type="checkbox" id="a-likely"> Role is inferred, not confirmed (adds "(likely)")</label>
-        <label>How identified<input id="a-how" placeholder="e.g. DNS answer, mDNS announcement"></label>
+        <div class="group">
+          <h3>Involved systems</h3>
+          <label>External<input id="r-ext" placeholder="IP:port (role)"></label>
+          <label>Internal<input id="r-int" placeholder="IP:port (name, role)"></label>
+        </div>
+        <div class="group">
+          <h3>Findings</h3>
+          <label>Incident summary<textarea id="r-sum" placeholder="What happened, the evidence, and the verdict"></textarea></label>
+          <label>OSINT<input id="r-osint" placeholder="Reputation results, or N/A for internal addresses"></label>
+        </div>
+        <div class="group optional">
+          <h3>Extra <em>optional</em></h3>
+          <label>Notes<input id="r-notes" placeholder="Open questions, follow-ups"></label>
+          <label>Links<input id="r-links" placeholder="Reputation lookups, dashboards"></label>
+          <label>Known false positive<input id="r-fpl" placeholder="e.g. [[Page#anchor|Known FP #1]]"></label>
+          <label>Analyst<input id="r-an" placeholder="Your name"></label>
+          <label class="check"><input type="checkbox" id="r-defang" checked> Defang IPs, domains and links</label>
+        </div>
       </div>
-      <div class="group">
-        <h3>Report and dates</h3>
-        <label>Report link<input id="a-rep" placeholder="Wiki link to the report, e.g. [[Page#anchor]]"></label>
-        <div class="row2">
-          <label>Added<input id="a-added" placeholder="DD.MM.YYYY" inputmode="numeric" autocomplete="off"></label>
-          <label>Last checked<input id="a-chk" placeholder="DD.MM.YYYY" inputmode="numeric" autocomplete="off"></label>
-        </div>
+      <div class="pane out">
+        <div class="outhead"><h2>Report</h2><div class="btns"><button class="ghost clear">Clear</button><button class="btn copy" data-src="o-report">Copy</button></div></div>
+        <p class="missing" id="m-report"></p>
+        <pre id="o-report"></pre>
+        <div class="status" aria-live="polite"></div>
       </div>
     </div>
-    <div class="pane out">
-      <div class="outhead"><h2>Table row</h2><button class="copy" data-src="o-asset">Copy</button></div>
-      <pre id="o-asset"></pre>
-      <div class="status" aria-live="polite"></div>
+
+    <div class="grid qp" id="p-fp" hidden>
+      <div class="pane">
+        <div class="group">
+          <h3>Entry</h3>
+          <div class="row2">
+            <label>Number<input id="f-num" placeholder="Next number" inputmode="numeric"></label>
+            <label>Dashboard<input id="f-dash" placeholder="Where the alert was seen"></label>
+          </div>
+          <label>Signature<input id="f-sig" placeholder="Signature name"></label>
+          <label>Condition<input id="f-cond" placeholder="src IP -> dest IP:port/proto"></label>
+          <label>Why benign<input id="f-why" placeholder="One line"></label>
+        </div>
+        <div class="group">
+          <h3>Report and dates</h3>
+          <label>Report link<input id="f-rep" placeholder="e.g. [[Page#anchor]]"></label>
+          <div class="row2">
+            <label>Added<span class="dateline"><input id="f-added" placeholder="DD.MM.YYYY" inputmode="numeric" autocomplete="off"><button type="button" class="today" data-for="f-added">Today</button></span></label>
+            <label>Last reviewed<span class="dateline"><input id="f-rev" placeholder="DD.MM.YYYY" inputmode="numeric" autocomplete="off"><button type="button" class="today" data-for="f-rev">Today</button></span></label>
+          </div>
+        </div>
+        <div class="group optional">
+          <h3>Exclusion <em>optional</em></h3>
+          <label>Exclusion query<input id="f-ex" placeholder="field : &quot;value&quot; and other.field : *word*"></label>
+          <label class="check"><input type="checkbox" id="f-oi"> Wrap in onlyinclude</label>
+        </div>
+      </div>
+      <div class="pane out">
+        <div class="outhead"><h2>False positive row</h2><div class="btns"><button class="ghost clear">Clear</button><button class="btn copy" data-src="o-fp">Copy</button></div></div>
+        <p class="missing" id="m-fp"></p>
+        <pre id="o-fp"></pre>
+        <div class="status" aria-live="polite"></div>
+      </div>
+    </div>
+
+    <div class="grid qp" id="p-asset" hidden>
+      <div class="pane">
+        <div class="group">
+          <h3>Host</h3>
+          <div class="row2">
+            <label>IP<input id="a-ip" placeholder="IP address"></label>
+            <label>Name<input id="a-name" placeholder="Hostname, or leave empty"></label>
+          </div>
+          <label>Role<input id="a-role" placeholder="e.g. File server"></label>
+          <label class="check"><input type="checkbox" id="a-likely"> Role is a guess, not confirmed</label>
+          <label>How identified<input id="a-how" placeholder="e.g. DNS answer, mDNS announcement"></label>
+        </div>
+        <div class="group">
+          <h3>Report and dates</h3>
+          <label>Report link<input id="a-rep" placeholder="e.g. [[Page#anchor]]"></label>
+          <div class="row2">
+            <label>Added<span class="dateline"><input id="a-added" placeholder="DD.MM.YYYY" inputmode="numeric" autocomplete="off"><button type="button" class="today" data-for="a-added">Today</button></span></label>
+            <label>Last checked<span class="dateline"><input id="a-chk" placeholder="DD.MM.YYYY" inputmode="numeric" autocomplete="off"><button type="button" class="today" data-for="a-chk">Today</button></span></label>
+          </div>
+        </div>
+      </div>
+      <div class="pane out">
+        <div class="outhead"><h2>Asset row</h2><div class="btns"><button class="ghost clear">Clear</button><button class="btn copy" data-src="o-asset">Copy</button></div></div>
+        <p class="missing" id="m-asset"></p>
+        <pre id="o-asset"></pre>
+        <div class="status" aria-live="polite"></div>
+      </div>
     </div>
   </section>
 </div>
 
 <script>
 const $=id=>document.getElementById(id);
-const v=id=>$(id).value.trim();
+const val=id=>$(id).value.trim();
 const or=(x,ph)=>x||ph;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* ---------- formatting ---------- */
 function defang(s){
-  return s.replace(/\b(\d{1,3}\.\d{1,3}\.\d{1,3})\.(\d{1,3})\b/g,"$1[.]$2")
+  return s.replace(/\bhttp(s?):\/\//gi,"hxxp$1://")
+          .replace(/\b(\d{1,3}\.\d{1,3}\.\d{1,3})\.(\d{1,3})\b/g,"$1[.]$2")
           .replace(/\b([a-z0-9-]+)\.([a-z]{2,})\b/gi,"$1[.]$2");
 }
-function line(label,val){return val?`  * '''${label}''': ${val}\n`:"";}
-
-function buildReport(){
-  const D=s=>$("r-defang").checked?defang(s):s;
-  let o=`'''${or(v("r-title"),"[Title]")}'''\n`;
-  o+=line("Alert Time",v("r-time"));
-  o+=line("Rule",v("r-rule"));
-  o+=line("Direction",$("r-dir").value);
-  o+=line("Involved Systems (External)",D(v("r-ext")));
-  o+=line("Involved Systems (Internal)",D(v("r-int")));
-  o+=line("Incident Summary",D(v("r-sum").replace(/\s*\n\s*/g," ")));
-  o+=line("Notes",D(v("r-notes")));
-  o+=line("Known FP",v("r-fpl"));
-  o+=line("OSINT",D(v("r-osint")));
-  o+=line("Links",v("r-links"));
-  o+=line("Analyst",v("r-an"));
-  $("o-report").textContent=o.replace(/\n+$/,"");
+const line=(label,x)=>x?`  * '''${label}''': ${x}\n`:"";
+function today(){const d=new Date();return String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+"."+d.getFullYear();}
+function dayFirst(t){
+  const m=t.match(/^([A-Za-z]{3})[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})\s*@?\s*(\d{2}:\d{2}:\d{2})/);
+  return m?`${m[2]} ${m[1]} ${m[3]} @ ${m[4]}`:t;
 }
-
-function buildFP(){
-  const n=or(v("f-num"),"N"), q=v("f-ex");
+function reportText(d){
+  const D=s=>d.defang?defang(s||""):(s||"");
+  let o=`'''${or((d.title||"").trim(),"[Title]")}'''\n`;
+  o+=line("Alert Time",d.time)+line("Rule",d.rule)+line("Direction",d.dir);
+  o+=line("Involved Systems (External)",D(d.ext))+line("Involved Systems (Internal)",D(d.int));
+  o+=line("Incident Summary",D((d.sum||"").replace(/\s*\n\s*/g," ").trim()));
+  o+=line("Notes",D(d.notes))+line("Known FP",d.fpl)+line("OSINT",D(d.osint))+line("Links",d.links)+line("Analyst",d.an);
+  return o.replace(/\n+$/,"");
+}
+function fpRow(f){
+  const n=or(f.num,"N");
   let ex="-";
-  if(q) ex=$("f-oi").checked?`<code><onlyinclude> and not (${q})</onlyinclude></code>`:`<code>and not (${q})</code>`;
-  $("o-fp").textContent=`|- id="fp${n}"\n| ${n} || ${or(v("f-dash"),"[dashboard]")} || ${or(v("f-sig"),"[signature]")} || ${or(v("f-cond"),"[condition]")} || ${or(v("f-why"),"[why benign]")} || ${ex} || ${or(v("f-rep"),"[report link]")} || ${or(v("f-added"),"[added]")} || ${or(v("f-rev"),"[reviewed]")}`;
+  if(f.ex) ex=f.oi?`<code><onlyinclude> and not (${f.ex})</onlyinclude></code>`:`<code>and not (${f.ex})</code>`;
+  return `|- id="fp${n}"\n| ${n} || ${or(f.dash,"[dashboard]")} || ${or(f.sig,"[signature]")} || ${or(f.cond,"[condition]")} || ${or(f.why,"[why benign]")} || ${ex} || ${or(f.rep,"[report link]")} || ${or(f.added,"[added]")} || ${or(f.rev,"[reviewed]")}`;
 }
-
-function buildAsset(){
-  const role=or(v("a-role"),"[role]")+($("a-likely").checked?" (likely)":"");
-  $("o-asset").textContent=`|-\n| ${or(v("a-ip"),"[IP]")} || ${or(v("a-name"),"-")} || ${role} || ${or(v("a-how"),"[how identified]")} || ${or(v("a-rep"),"[report link]")} || ${or(v("a-added"),"[added]")} || ${or(v("a-chk"),"[checked]")}`;
+function assetRow(a){
+  const role=or(a.role,"[role]")+(a.likely?" (likely)":"");
+  return `|-\n| ${or(a.ip,"[IP]")} || ${or(a.name,"-")} || ${role} || ${or(a.how,"[how identified]")} || ${or(a.rep,"[report link]")} || ${or(a.added,"[added]")} || ${or(a.chk,"[checked]")}`;
 }
+const missingText=l=>l.length?"Still empty: <b>"+l.join(", ")+"</b>":"All main fields filled in.";
 
-function all(){buildReport();buildFP();buildAsset();}
-document.addEventListener("input",all);
-document.addEventListener("change",all);
+/* ---------- storage (this browser only) ---------- */
+let canStore=true;
+function load(key,def){try{const x=localStorage.getItem(key);return x?JSON.parse(x):def;}catch(e){canStore=false;return def;}}
+function save(key,x){try{localStorage.setItem(key,JSON.stringify(x));}catch(e){canStore=false;$("nostore").hidden=false;}}
+let analyst=load("builder-analyst",""), fpPage=load("builder-fppage","");
 
-const VIEWS=["report","fp","asset"];
-function show(p){
-  if(!VIEWS.includes(p)) p="report";
-  document.querySelectorAll(".tab").forEach(x=>x.setAttribute("aria-selected",x.dataset.p===p));
-  VIEWS.forEach(x=>$("p-"+x).hidden=x!==p);
-  window.scrollTo(0,0);
-}
-document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click",()=>{
-  if(location.hash==="#"+t.dataset.p) show(t.dataset.p); else location.hash=t.dataset.p;
-}));
-window.addEventListener("hashchange",()=>show(location.hash.slice(1)));
-show(location.hash.slice(1));
-
-document.querySelectorAll(".pane .copy").forEach(b=>b.addEventListener("click",()=>{
-  const pre=$(b.dataset.src), st=b.closest(".pane").querySelector(".status");
+/* ---------- copy / today ---------- */
+function copyFrom(btn){
+  const pre=$(btn.dataset.src), st=btn.closest(".pane").querySelector(".status");
   const sel=()=>{const r=document.createRange();r.selectNodeContents(pre);const s=getSelection();s.removeAllRanges();s.addRange(r);};
-  const done=m=>{st.textContent=m;setTimeout(()=>st.textContent="",2500);};
+  const done=m=>{st.textContent=m;clearTimeout(st._t);st._t=setTimeout(()=>st.textContent="",2500);};
   if(navigator.clipboard&&navigator.clipboard.writeText){
     navigator.clipboard.writeText(pre.textContent).then(()=>done("Copied."),()=>{sel();done("Text selected. Press Ctrl+C to copy.");});
   }else{sel();done("Text selected. Press Ctrl+C to copy.");}
+}
+document.addEventListener("click",e=>{
+  const c=e.target.closest(".copy"); if(c){copyFrom(c);return;}
+  const t=e.target.closest(".today"); if(t){const i=$(t.dataset.for);i.value=today();i.dispatchEvent(new Event("input",{bubbles:true}));}
+});
+
+/* ---------- modes ---------- */
+function setMode(m){
+  if(m!=="quick") m="tickets";
+  document.querySelectorAll(".mode").forEach(b=>b.setAttribute("aria-selected",b.dataset.mode===m));
+  $("v-tickets").hidden=m!=="tickets"; $("v-quick").hidden=m!=="quick";
+  save("builder-mode",m);
+}
+document.querySelectorAll(".mode").forEach(b=>b.addEventListener("click",()=>setMode(b.dataset.mode)));
+
+/* ===================== TICKETS ===================== */
+let tickets=load("builder-tickets",[]), current=null;
+const KF=["title","time","rule","dir","ext","int","work","sum","osint","notes","links","an","date","rep","status"];
+const FF=["num","dash","sig","cond","why","added","rev","ex"];
+const newId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const persist=()=>save("builder-tickets",tickets);
+const cur=()=>tickets.find(t=>t.id===current);
+
+function renderList(){
+  const q=val("k-search").toLowerCase();
+  const list=[...tickets].sort((a,b)=>b.updated-a.updated)
+    .filter(t=>!q||[t.title,t.rule,t.ext,t.int,t.work,t.sum].join(" ").toLowerCase().includes(q));
+  $("k-items").innerHTML=list.length?list.map(t=>`<button class="item" data-id="${t.id}" aria-current="${t.id===current}"><b>${esc(t.title||"Untitled ticket")}</b><small><span class="chip ${esc(t.status||"Open")}">${esc(t.status||"Open")}</span>${esc(t.time||t.date||"")}</small></button>`).join("")
+    :`<p class="empty">${tickets.length?"No tickets match.":"No tickets yet."}</p>`;
+}
+$("k-items").addEventListener("click",e=>{const b=e.target.closest(".item");if(b)openTicket(b.dataset.id);});
+$("k-search").addEventListener("input",renderList);
+
+function newTicket(){
+  const t={id:newId(),created:Date.now(),updated:Date.now(),defang:true,fp:{on:false,oi:false},hosts:[]};
+  KF.forEach(k=>t[k]=""); FF.forEach(k=>t.fp[k]="");
+  t.status="Open"; t.an=analyst; t.date=today();
+  tickets.push(t); persist(); openTicket(t.id); $("k-title").focus();
+}
+$("k-new").addEventListener("click",newTicket); $("k-new2").addEventListener("click",newTicket);
+
+function openTicket(id){
+  current=id; const t=cur();
+  $("k-none").hidden=!!t; $("k-form").hidden=!t;
+  if(t){
+    KF.forEach(k=>$("k-"+k).value=t[k]||(k==="status"?"Open":""));
+    $("k-defang").checked=!!t.defang;
+    $("k-foi").checked=!!t.fp.oi;
+    FF.forEach(k=>$("k-f"+k).value=t.fp[k]||"");
+    $("k-fpage").value=fpPage;
+    if(!t.hosts.length) t.hosts.push({});
+    renderHosts(); $("k-saved").textContent=canStore?"Saved":"";
+    renderTicketOut();
+  }
+  resetDel(); renderList();
+}
+
+function readForm(){
+  const t=cur(); if(!t) return;
+  KF.forEach(k=>t[k]=$("k-"+k).value);
+  t.defang=$("k-defang").checked;
+  t.fp.oi=$("k-foi").checked;
+  FF.forEach(k=>t.fp[k]=$("k-f"+k).value);
+  t.hosts=[...$("k-hosts").querySelectorAll(".host")].map(h=>({
+    ip:h.querySelector(".h-ip").value,name:h.querySelector(".h-name").value,role:h.querySelector(".h-role").value,
+    likely:h.querySelector(".h-likely").checked,how:h.querySelector(".h-how").value}));
+  t.updated=Date.now();
+  if(t.an.trim()){analyst=t.an.trim();save("builder-analyst",analyst);}
+  fpPage=val("k-fpage"); save("builder-fppage",fpPage);
+}
+let saveTimer;
+function edited(){
+  readForm();
+  renderTicketOut(); persist();
+  $("k-saved").textContent=canStore?"Saved":"Not saved in this browser";
+  clearTimeout(saveTimer); saveTimer=setTimeout(renderList,300);
+}
+$("k-form").addEventListener("input",edited);
+$("k-form").addEventListener("change",edited);
+$("k-time").addEventListener("blur",()=>{const x=dayFirst(val("k-time"));if(x!==val("k-time")){$("k-time").value=x;edited();}});
+
+function hostHTML(h,i){
+  return `<div class="host"><div class="hosthead">Host ${i+1}<button class="ghost h-del" type="button">Remove</button></div>
+  <div class="row2"><label>IP<input class="h-ip" value="${esc(h.ip||"")}" placeholder="IP address"></label>
+  <label>Name<input class="h-name" value="${esc(h.name||"")}" placeholder="Hostname, or leave empty"></label></div>
+  <label>Role<input class="h-role" value="${esc(h.role||"")}" placeholder="e.g. File server"></label>
+  <label class="check"><input type="checkbox" class="h-likely" ${h.likely?"checked":""}> Role is a guess, not confirmed</label>
+  <label>How identified<input class="h-how" value="${esc(h.how||"")}" placeholder="e.g. DNS answer, mDNS announcement"></label></div>`;
+}
+function renderHosts(){$("k-hosts").innerHTML=cur().hosts.map(hostHTML).join("");}
+$("k-addhost").addEventListener("click",()=>{
+  readForm(); cur().hosts.push({}); renderHosts(); edited();
+  const hs=$("k-hosts").querySelectorAll(".h-ip"); hs[hs.length-1].focus();
+});
+$("k-hosts").addEventListener("click",e=>{
+  const d=e.target.closest(".h-del"); if(!d) return;
+  d.closest(".host").remove(); edited(); if(!cur().hosts.length) cur().hosts.push({}); renderHosts();
+});
+
+function renderTicketOut(){
+  const t=cur(); if(!t) return;
+  const F=k=>(t.fp[k]||"").trim();
+  const fpl=F("num")&&fpPage?`[[${fpPage}#fp${F("num")}|Known FP #${F("num")}]]`:"";
+  $("ko-report").textContent=reportText({...t,fpl});
+  const miss=[["title","Title"],["time","Alert time"],["rule","Rule"],["dir","Direction"],["sum","Incident summary"]]
+    .filter(([k])=>!String(t[k]||"").trim()).map(([,n])=>n);
+  $("km-report").innerHTML=missingText(miss);
+  $("ko-fp").textContent=fpRow({num:F("num"),dash:F("dash"),sig:F("sig")||t.rule.trim(),cond:F("cond"),why:F("why"),
+    ex:F("ex"),oi:t.fp.oi,rep:t.rep.trim(),added:F("added"),rev:F("rev")});
+  $("km-fp").innerHTML=missingText([["num","Number"],["cond","Condition"],["why","Why benign"],["added","Added"]].filter(([k])=>!F(k)).map(([,n])=>n));
+  const hs=t.hosts.filter(h=>(h.ip||h.role||h.name||"").trim());
+  $("ko-hosts").textContent=hs.length?hs.map(h=>assetRow({...h,rep:t.rep.trim(),added:t.date.trim(),chk:t.date.trim()})).join("\n"):"No hosts filled in yet.";
+}
+
+function resetDel(){const b=$("k-del");b.classList.remove("warn");b.textContent="Delete ticket";}
+$("k-del").addEventListener("click",()=>{
+  const b=$("k-del");
+  if(!b.classList.contains("warn")){b.classList.add("warn");b.textContent="Click again to delete";clearTimeout(b._t);b._t=setTimeout(resetDel,3000);return;}
+  tickets=tickets.filter(t=>t.id!==current); persist(); openTicket(null);
+});
+
+/* ===================== QUICK ENTRY ===================== */
+function buildQuick(){
+  $("o-report").textContent=reportText({title:val("r-title"),time:val("r-time"),rule:val("r-rule"),dir:$("r-dir").value,ext:val("r-ext"),int:val("r-int"),
+    sum:val("r-sum"),notes:val("r-notes"),fpl:val("r-fpl"),osint:val("r-osint"),links:val("r-links"),an:val("r-an"),defang:$("r-defang").checked});
+  $("o-fp").textContent=fpRow({num:val("f-num"),dash:val("f-dash"),sig:val("f-sig"),cond:val("f-cond"),why:val("f-why"),ex:val("f-ex"),oi:$("f-oi").checked,rep:val("f-rep"),added:val("f-added"),rev:val("f-rev")});
+  $("o-asset").textContent=assetRow({ip:val("a-ip"),name:val("a-name"),role:val("a-role"),likely:$("a-likely").checked,how:val("a-how"),rep:val("a-rep"),added:val("a-added"),chk:val("a-chk")});
+  const m=ids=>ids.filter(([id])=>!$(id).value.trim()).map(([,n])=>n);
+  $("m-report").innerHTML=missingText(m([["r-title","Title"],["r-time","Alert time"],["r-rule","Rule"],["r-dir","Direction"],["r-sum","Incident summary"]]));
+  $("m-fp").innerHTML=missingText(m([["f-num","Number"],["f-sig","Signature"],["f-cond","Condition"],["f-why","Why benign"],["f-rep","Report link"],["f-added","Added"]]));
+  $("m-asset").innerHTML=missingText(m([["a-ip","IP"],["a-role","Role"],["a-how","How identified"],["a-added","Added"]]));
+}
+$("v-quick").addEventListener("input",buildQuick);
+$("v-quick").addEventListener("change",buildQuick);
+$("r-time").addEventListener("blur",()=>{$("r-time").value=dayFirst(val("r-time"));buildQuick();});
+$("r-an").value=analyst;
+$("r-an").addEventListener("input",()=>{if(val("r-an")){analyst=val("r-an");save("builder-analyst",analyst);}});
+
+document.querySelectorAll(".subtab").forEach(b=>b.addEventListener("click",()=>{
+  document.querySelectorAll(".subtab").forEach(x=>x.setAttribute("aria-selected",x===b));
+  document.querySelectorAll(".qp").forEach(p=>p.hidden=p.id!=="p-"+b.dataset.p);
+}));
+document.querySelectorAll(".clear").forEach(b=>b.addEventListener("click",()=>{
+  if(!b.classList.contains("warn")){b.classList.add("warn");b.textContent="Click again to clear";
+    clearTimeout(b._t);b._t=setTimeout(()=>{b.classList.remove("warn");b.textContent="Clear";},3000);return;}
+  b.closest(".qp").querySelectorAll(".pane:not(.out) input, .pane:not(.out) textarea, .pane:not(.out) select").forEach(el=>{
+    if(el.id==="r-an")return; if(el.type==="checkbox")el.checked=el.id==="r-defang"; else el.value="";});
+  b.classList.remove("warn");b.textContent="Clear";buildQuick();
 }));
 
-all();
+/* Ctrl+Enter copies the report (tickets) or the open quick entry */
+document.addEventListener("keydown",e=>{
+  if(!((e.ctrlKey||e.metaKey)&&e.key==="Enter")) return;
+  let btn=null;
+  if(!$("v-tickets").hidden){ if(!$("k-form").hidden) btn=$("k-out").querySelector(".copy"); }
+  else { const p=[...document.querySelectorAll(".qp")].find(x=>!x.hidden); if(p) btn=p.querySelector(".copy"); }
+  if(btn){e.preventDefault();copyFrom(btn);}
+});
+
+window.addEventListener("pagehide",()=>{if(cur()){readForm();persist();}});
+
+/* ---------- start ---------- */
+setMode(load("builder-mode","tickets"));
+if(!canStore) $("nostore").hidden=false;
+const latest=[...tickets].sort((a,b)=>b.updated-a.updated)[0];
+openTicket(latest?latest.id:null);
+buildQuick();
 </script>
 </body>
 </html>
