@@ -20,6 +20,8 @@ Nothing is saved or sent anywhere. Everything you type stays in the open page an
 - **Defang** replaces dots in IP addresses and domains with `[.]` in the report.
 - In the false positive tab, an exclusion query is written as `and not (...)`. Tick **Wrap in onlyinclude** if another wiki page should pull these lines in with `{{:PageName}}`.
 
+<img width="1530" height="977" alt="image" src="https://github.com/user-attachments/assets/7fbffe58-a7ef-46a6-99e0-795a7a69dba6" />
+
 <img width="1532" height="912" alt="image" src="https://github.com/user-attachments/assets/874effc8-23b3-4418-966c-d38531cd6298" />
 
 <img width="1537" height="882" alt="image" src="https://github.com/user-attachments/assets/fd9acbe0-e72f-4a2c-8922-07df57039d86" />
